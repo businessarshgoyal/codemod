@@ -8,6 +8,11 @@ This is a demonstration of Graphite workflow with your codemod repository.
 - Stack management
 - Sync operations
 
+## Graphite Benefits:
+- **Faster development**: Work on multiple features simultaneously
+- **Better code review**: Smaller, focused PRs
+- **Automatic conflict resolution**: Smart restacking
+
 ## Next steps:
 - Make changes to existing files
 - Create stacked branches
