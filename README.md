@@ -8,11 +8,7 @@
 
   <p align="center">
     <br />
-    <a href="https://codemod.com/registry/">Registry</a>
-    ·
-    <a href="https://codemod.com/community">Community</a>
-    ·
-    <a href="https://docs.codemod.com">Docs</a>
+ 
   </p>
 </p>
 
