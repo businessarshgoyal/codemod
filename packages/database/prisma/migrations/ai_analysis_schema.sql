@@ -2,10 +2,10 @@
 -- This migration adds tables for storing AI-powered code analysis results
 
 CREATE TABLE ai_analysis_sessions (
-    id SERIAL PRIMARY KEY,
+    id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
     repository_url VARCHAR(500) NOT NULL,
-    analysis_type VARCHAR(100) NOT NULL, -- 'security', 'performance', 'quality'
+    analysis_type VARCHAR(100) NOT NULL, -- 'security', 'performance', 'quality', 'maintainability'
     status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -13,22 +13,22 @@ CREATE TABLE ai_analysis_sessions (
 );
 
 CREATE TABLE ai_analysis_results (
-    id SERIAL PRIMARY KEY,
-    session_id INTEGER REFERENCES ai_analysis_sessions(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY,
+    session_id VARCHAR(64) REFERENCES ai_analysis_sessions(id) ON DELETE CASCADE,
     file_path VARCHAR(1000) NOT NULL,
     line_number INTEGER,
     severity VARCHAR(20) NOT NULL, -- 'low', 'medium', 'high', 'critical'
     category VARCHAR(100) NOT NULL,
     message TEXT NOT NULL,
     suggestion TEXT,
-    confidence_score DECIMAL(3,2), -- 0.00 to 1.00
+    confidence_score DECIMAL(3,2) CHECK (confidence_score BETWEEN 0 AND 1), -- 0.00 to 1.00
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ai_model VARCHAR(100) NOT NULL -- 'gpt-4', 'claude-3', etc.
 );
 
 CREATE TABLE ai_analysis_metrics (
-    id SERIAL PRIMARY KEY,
-    session_id INTEGER REFERENCES ai_analysis_sessions(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY,
+    session_id VARCHAR(64) REFERENCES ai_analysis_sessions(id) ON DELETE CASCADE,
     metric_name VARCHAR(100) NOT NULL,
     metric_value DECIMAL(10,2) NOT NULL,
     metric_unit VARCHAR(50),
