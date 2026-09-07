@@ -7,7 +7,7 @@ import { Router, Request, Response } from 'express';
 import { AiAnalysisService } from '../services/ai-analysis.service';
 import { authenticateUser } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
-import { CreateAnalysisSessionRequest } from '@codemod/database';
+import { AnalysisFilters, AnalysisPagination, CreateAnalysisSessionRequest } from '@codemod/database';
 
 const router = Router();
 const aiAnalysisService = new AiAnalysisService();
@@ -111,16 +111,16 @@ router.get('/sessions',
         sortOrder = 'desc'
       } = req.query;
 
-      const filters = {
+      const filters: AnalysisFilters = {
         userId,
-        ...(analysisType && { analysisType: analysisType as string }),
-        ...(status && { status: status as string })
+        ...(analysisType && { analysisType: analysisType as AnalysisFilters['analysisType'] }),
+        ...(status && { status: status as AnalysisFilters['status'] })
       };
 
-      const pagination = {
+      const pagination: AnalysisPagination = {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        sortBy: sortBy as string,
+        sortBy: sortBy as AnalysisPagination['sortBy'],
         sortOrder: sortOrder as 'asc' | 'desc'
       };
 
@@ -128,11 +128,11 @@ router.get('/sessions',
 
       res.json({
         success: true,
-        data: sessions,
+        data: sessions.results,
         pagination: {
           page: pagination.page,
           limit: pagination.limit,
-          total: sessions.length
+          total: sessions.totalCount
         }
       });
     } catch (error) {

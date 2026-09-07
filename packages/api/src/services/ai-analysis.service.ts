@@ -206,13 +206,81 @@ export class AiAnalysisService {
     };
   }
 
+  /**
+   * List sessions matching the filters, along with the total count across all pages
+   */
+  async getUserSessions(
+    filters: AnalysisFilters,
+    pagination: AnalysisPagination
+  ): Promise<{ results: AiAnalysisSession[]; totalCount: number }> {
+    const sessions = await this.findSessions(filters);
+    const sortBy = pagination.sortBy === 'updatedAt' ? 'updatedAt' : 'createdAt';
+    const direction = pagination.sortOrder === 'asc' ? 1 : -1;
+    sessions.sort((a, b) => direction * (a[sortBy].getTime() - b[sortBy].getTime()));
+
+    const start = (pagination.page - 1) * pagination.limit;
+    return {
+      results: sessions.slice(start, start + pagination.limit),
+      totalCount: sessions.length
+    };
+  }
+
+  /**
+   * Re-queue an existing session for processing
+   */
+  async rerunAnalysis(sessionId: string): Promise<void> {
+    const session = await this.getSessionById(sessionId);
+    if (!session) {
+      throw new Error('Analysis session not found');
+    }
+
+    await this.deleteResultsBySessionId(sessionId);
+    await this.updateSessionStatus(sessionId, 'pending');
+    await this.queueAnalysisJob(session);
+  }
+
+  /**
+   * Delete a session owned by the given user. Returns false if it does not exist or is not owned by the user.
+   */
+  async deleteSession(sessionId: string, userId: string): Promise<boolean> {
+    const session = await this.getSessionById(sessionId);
+    if (!session || session.userId !== userId) {
+      return false;
+    }
+
+    await this.deleteSessionById(sessionId);
+    return true;
+  }
+
+  /**
+   * Serialize a session and its results as JSON or CSV. Returns null if not found or not owned by the user.
+   */
+  async exportSession(sessionId: string, userId: string, format: string): Promise<string | null> {
+    const session = await this.getAnalysisSession(sessionId);
+    if (!session || session.userId !== userId) {
+      return null;
+    }
+
+    if (format === 'csv') {
+      const header = ['filePath', 'lineNumber', 'severity', 'category', 'message', 'suggestion', 'confidenceScore', 'aiModel'];
+      const rows = session.results.map(r =>
+        [r.filePath, r.lineNumber ?? '', r.severity, r.category, r.message, r.suggestion ?? '', r.confidenceScore ?? '', r.aiModel]
+          .map(v => `"${String(v).replace(/"/g, '""')}"`)
+          .join(',')
+      );
+      return [header.join(','), ...rows].join('\n');
+    }
+
+    return JSON.stringify(session, null, 2);
+  }
+
   // Helper methods (implementation details)
   private generateId(): string {
     return Math.random().toString(36).substring(2, 15);
   }
 
   private isValidRepositoryUrl(url: string): boolean {
-    return /^https:\/\/github\.com\/[\w-]+\/[\w-]+$/.test(url);
+    return /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\.git)?$/.test(url);
   }
 
   private async callOpenAI(prompt: string): Promise<string> {
@@ -232,6 +300,9 @@ export class AiAnalysisService {
 
   // Database operations (would use actual DB in real implementation)
   private async getSessionById(id: string): Promise<AiAnalysisSession | null> { return null; }
+  private async findSessions(filters: AnalysisFilters): Promise<AiAnalysisSession[]> { return []; }
+  private async deleteSessionById(id: string): Promise<void> {}
+  private async deleteResultsBySessionId(sessionId: string): Promise<void> {}
   private async updateSessionStatus(id: string, status: string): Promise<void> {}
   private async storeAnalysisResults(sessionId: string, results: AiAnalysisResult[]): Promise<void> {}
   private async getResultsBySessionId(sessionId: string): Promise<AiAnalysisResult[]> { return []; }
