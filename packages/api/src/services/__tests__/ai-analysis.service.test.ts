@@ -337,13 +337,46 @@ describe('AiAnalysisService', () => {
       const session = await service.createAnalysisSession(mockUserId, request);
       expect(session.status).toBe('pending');
 
-      // Mock the processing (in real test, this would be queued)
-      // await service.processAnalysis(session.id);
+      // In-memory stand-ins for the database layer so the whole pipeline runs end to end
+      const stored = { session: { ...session }, results: [] as any[] };
+      jest.spyOn(service as any, 'getSessionById').mockImplementation(async () => stored.session);
+      jest.spyOn(service as any, 'updateSessionStatus').mockImplementation(async (_id: string, status: string) => {
+        stored.session = { ...stored.session, status };
+      });
+      jest.spyOn(service as any, 'storeAnalysisResults').mockImplementation(async (_id: string, results: any[]) => {
+        stored.results.push(...results);
+      });
+      jest.spyOn(service as any, 'getResultsBySessionId').mockImplementation(async () => stored.results);
+      jest.spyOn(service as any, 'getMetricsBySessionId').mockResolvedValue([]);
+      jest.spyOn(service as any, 'generateMetrics').mockResolvedValue(undefined);
+      jest.spyOn(service as any, 'cloneRepository').mockResolvedValue('/tmp/vulnerable-app');
+      jest.spyOn(service as any, 'getCodeFiles').mockResolvedValue(['/tmp/vulnerable-app/index.js']);
+      jest.spyOn(service as any, 'readFile').mockResolvedValue('eval(req.query.code)');
+      const cleanup = jest.spyOn(service as any, 'cleanupRepository').mockResolvedValue(undefined);
+      jest.spyOn(service as any, 'parseAiResponse').mockReturnValue([
+        {
+          id: 'result-1',
+          sessionId: session.id,
+          filePath: '/tmp/vulnerable-app/index.js',
+          lineNumber: 1,
+          severity: 'critical',
+          category: 'security',
+          message: 'Use of eval with user input',
+          confidenceScore: 0.95,
+          createdAt: new Date(),
+          aiModel: 'gpt-4'
+        }
+      ]);
+
+      // Run the processing that would normally be picked up from the queue
+      await service.processAnalysis(session.id);
 
       // Verify completion
-      // const completedSession = await service.getAnalysisSession(session.id);
-      // expect(completedSession?.status).toBe('completed');
-      // expect(completedSession?.totalIssues).toBeGreaterThan(0);
+      const completedSession = await service.getAnalysisSession(session.id);
+      expect(completedSession?.status).toBe('completed');
+      expect(completedSession?.totalIssues).toBe(1);
+      expect(completedSession?.criticalIssues).toBe(1);
+      expect(cleanup).toHaveBeenCalledWith('/tmp/vulnerable-app');
     });
   });
 });
