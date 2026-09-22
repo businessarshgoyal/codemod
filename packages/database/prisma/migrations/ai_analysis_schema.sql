@@ -35,6 +35,19 @@ CREATE TABLE ai_analysis_metrics (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE OR REPLACE FUNCTION set_ai_analysis_sessions_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_ai_analysis_sessions_updated_at
+    BEFORE UPDATE ON ai_analysis_sessions
+    FOR EACH ROW
+    EXECUTE FUNCTION set_ai_analysis_sessions_updated_at();
+
 -- Indexes for performance
 CREATE INDEX idx_ai_sessions_user_id ON ai_analysis_sessions(user_id);
 CREATE INDEX idx_ai_sessions_status ON ai_analysis_sessions(status);
